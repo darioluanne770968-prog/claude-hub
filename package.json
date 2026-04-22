@@ -2,18 +2,29 @@
   "name": "claude-hub",
   "version": "1.0.0",
   "private": true,
+  "main": "electron/main.js",
+  "author": "Claude Hub",
+  "description": "Claude Code Session Manager",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 43721",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "next start -p 43721",
+    "lint": "next lint",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:43721 && electron .\"",
+    "electron:build": "npm run build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && electron-builder --mac",
+    "electron:build:dmg": "npm run build && electron-builder --mac dmg",
+    "electron:build:all": "npm run build && electron-builder --mac --win"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@supabase/supabase-js": "^2.93.3",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.23",
+    "better-sqlite3": "^12.5.0",
+    "chokidar": "^5.0.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.562.0",
     "next": "^16.1.1",
@@ -22,7 +33,84 @@
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "ssh2": "^1.17.0",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@next/eslint-plugin-next": "^16.1.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/ssh2": "^1.15.5",
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0",
+    "electron-icon-builder": "^2.0.1",
+    "eslint": "^9.39.2",
+    "typescript-eslint": "^8.52.0",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.claudehub.app",
+    "productName": "Claude Hub",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      ".next/standalone/**/*",
+      ".next/static/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "asar": false,
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "electron/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Claude Hub",
+      "icon": "electron/icon.icns",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "electron/icon.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "electron/icon.png",
+      "category": "Development"
+    }
   }
 }

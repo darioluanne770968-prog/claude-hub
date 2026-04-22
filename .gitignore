@@ -37,3 +37,9 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Firebase
+firebase-debug.log
+
+# Electron build
+dist-electron/

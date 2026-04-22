@@ -1,0 +1,123 @@
+{
+  "name": "claude-hub-vscode",
+  "displayName": "Claude Hub",
+  "description": "View and manage Claude Code sessions directly in VS Code",
+  "version": "0.1.0",
+  "publisher": "claude-hub",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:claudeHubSessions"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "claude-hub",
+          "title": "Claude Hub",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "claude-hub": [
+        {
+          "id": "claudeHubSessions",
+          "name": "Sessions",
+          "contextualTitle": "Claude Hub Sessions"
+        },
+        {
+          "id": "claudeHubFavorites",
+          "name": "Favorites"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "claudeHub.refreshSessions",
+        "title": "Refresh Sessions",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "claudeHub.openSession",
+        "title": "Open Session"
+      },
+      {
+        "command": "claudeHub.openInBrowser",
+        "title": "Open in Browser",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "claudeHub.copySessionId",
+        "title": "Copy Session ID"
+      },
+      {
+        "command": "claudeHub.toggleFavorite",
+        "title": "Toggle Favorite",
+        "icon": "$(star)"
+      },
+      {
+        "command": "claudeHub.insertCodeSnippet",
+        "title": "Insert Code Snippet"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "claudeHub.refreshSessions",
+          "when": "view == claudeHubSessions",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "claudeHub.openInBrowser",
+          "when": "view == claudeHubSessions || view == claudeHubFavorites"
+        },
+        {
+          "command": "claudeHub.copySessionId",
+          "when": "view == claudeHubSessions || view == claudeHubFavorites"
+        },
+        {
+          "command": "claudeHub.toggleFavorite",
+          "when": "view == claudeHubSessions"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Claude Hub",
+      "properties": {
+        "claudeHub.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "URL of the Claude Hub server"
+        },
+        "claudeHub.showMessageCount": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show message count in session list"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  }
+}

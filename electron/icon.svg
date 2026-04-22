@@ -1,0 +1,12 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="108" fill="#18181B"/>
+  <rect x="32" y="32" width="448" height="448" rx="80" fill="#27272A"/>
+
+  <!-- Chat bubble -->
+  <path d="M128 160C128 142.327 142.327 128 160 128H352C369.673 128 384 142.327 384 160V304C384 321.673 369.673 336 352 336H240L176 384V336H160C142.327 336 128 321.673 128 304V160Z" fill="#F59E0B"/>
+
+  <!-- Dots representing messages -->
+  <circle cx="200" cy="232" r="20" fill="#18181B"/>
+  <circle cx="256" cy="232" r="20" fill="#18181B"/>
+  <circle cx="312" cy="232" r="20" fill="#18181B"/>
+</svg>
