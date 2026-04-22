@@ -1,0 +1,45 @@
+name: Auto Cleanup Old Messages
+
+# 定期清理 Supabase 中 30 天前的消息数据
+# 每天凌晨 2 点 UTC 执行(北京时间上午 10 点)
+
+on:
+  schedule:
+    # 每天凌晨 2 点 UTC 执行
+    - cron: '0 2 * * *'
+
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 执行清理 API
+        run: |
+          # 调用清理 API
+          response=$(curl -X POST \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            ${{ secrets.CLEANUP_API_URL || 'https://your-app.vercel.app/api/cleanup' }})
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          # 检查是否成功
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Cleanup completed successfully"
+          else
+            echo "❌ Cleanup failed"
+            exit 1
+          fi
+
+      - name: 通知结果
+        if: failure()
+        run: |
+          echo "清理失败,请检查日志"
+          # 这里可以添加 Slack/Discord 通知逻辑
