@@ -63,7 +63,9 @@
       ".next/standalone/**/*",
       ".next/static/**/*",
       "public/**/*",
-      "package.json"
+      "package.json",
+      ".env.local",
+      ".env"
     ],
     "asar": false,
     "mac": {
