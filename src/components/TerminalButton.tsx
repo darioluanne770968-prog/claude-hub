@@ -11,6 +11,7 @@ interface RemoteSource {
 
 interface TerminalButtonProps {
   sessionId: string;
+  provider?: 'claude' | 'codex';
   projectPath: string;
   variant?: 'icon' | 'full';
   className?: string;
@@ -20,6 +21,7 @@ interface TerminalButtonProps {
 
 export default function TerminalButton({
   sessionId,
+  provider = 'claude',
   projectPath,
   variant = 'icon',
   className = '',
@@ -31,9 +33,19 @@ export default function TerminalButton({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isRemote = source?.type === 'remote';
+  const isCodex = provider === 'codex';
+  const rawSessionId = isCodex && sessionId.startsWith('codex-')
+    ? sessionId.slice('codex-'.length)
+    : sessionId;
 
-  // Use -r/--resume with session ID to resume a specific session
-  const command = `cd "${projectPath}" && claude -r ${sessionId}`;
+  // Default fallback while the server-resolved command is loading. The server
+  // may rewrite the path if the session was synced from another Mac with a
+  // different username.
+  const fallbackCommand = isCodex
+    ? `cd "${projectPath}" && codex resume ${rawSessionId}`
+    : `cd "${projectPath}" && claude -r ${sessionId}`;
+  const [command, setCommand] = useState(fallbackCommand);
+
   // For remote sessions, include SSH command
   const remoteCommand = isRemote ? `ssh <user>@<host> -t '${command}'` : command;
 
@@ -48,6 +60,21 @@ export default function TerminalButton({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Ask the server for the actual command to run / show. The server applies
+  // path-remap (e.g. /Users/hui → /Users/haihui) when needed.
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ sessionId, projectPath, provider });
+    if (source?.type === 'remote') params.set('hostId', source.hostId);
+    fetch(`/api/terminal?${params.toString()}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && data?.command) setCommand(data.command);
+      })
+      .catch(() => { /* fall back to local default */ });
+    return () => { cancelled = true; };
+  }, [sessionId, projectPath, provider, source]);
+
   const handleOpenTerminal = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -60,6 +87,7 @@ export default function TerminalButton({
         body: JSON.stringify({
           sessionId,
           projectPath,
+          provider,
           // Pass remote info if this is a remote session
           hostId: source?.hostId,
         }),
@@ -103,7 +131,7 @@ export default function TerminalButton({
         <button
           onClick={toggleDropdown}
           className={`p-1.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400 hover:border-green-400 dark:hover:border-green-500/50 hover:bg-green-50 dark:hover:bg-green-500/10 transition-all ${className}`}
-          title={isRemote ? `SSH到 ${source?.hostName} 恢复会话` : "在终端中恢复会话"}
+          title={isRemote ? `SSH到 ${source?.hostName} 恢复会话` : `在终端中恢复${isCodex ? ' Codex' : ''}会话`}
         >
           {isRemote ? <Server size={14} /> : <Terminal size={14} />}
         </button>
@@ -132,7 +160,7 @@ export default function TerminalButton({
             </button>
             <div className="border-t border-zinc-200 dark:border-zinc-700 px-3 py-2">
               <code className="text-xs text-zinc-500 dark:text-zinc-400 break-all">
-                claude --resume --session-id {sessionId.slice(0, 8)}...
+                {isCodex ? 'codex resume' : 'claude --resume'} {rawSessionId.slice(0, 8)}...
               </code>
             </div>
           </div>
@@ -153,7 +181,7 @@ export default function TerminalButton({
         } transition-all ${className}`}
       >
         {isRemote ? <Server size={16} /> : <Terminal size={16} />}
-        <span className="text-sm font-medium">{isRemote ? `SSH恢复 (${source?.hostName})` : '在终端中恢复'}</span>
+        <span className="text-sm font-medium">{isRemote ? `SSH恢复 (${source?.hostName})` : `在终端中恢复${isCodex ? ' Codex' : ''}`}</span>
         <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 

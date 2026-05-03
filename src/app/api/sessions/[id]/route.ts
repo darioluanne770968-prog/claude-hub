@@ -93,9 +93,9 @@ export async function GET(
       })
       .filter(msg => msg.richContent.length > 0); // Filter out empty messages
 
-    // Get customName from user data store (priority) or fall back to session content
-    const userCustomName = getCustomNameFromUserData(session.id);
-    const finalCustomName = userCustomName || session.customName;
+    // JSONL is the source of truth (terminal /rename and Hub renames both write there).
+    // user-data.json is only a fallback for legacy entries.
+    const finalCustomName = session.customName || getCustomNameFromUserData(session.id);
 
     return NextResponse.json({
       id: session.id,

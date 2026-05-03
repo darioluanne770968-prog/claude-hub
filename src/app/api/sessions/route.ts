@@ -59,7 +59,9 @@ export async function GET() {
         originalProjectPath: session.originalProjectPath,
         summaries: session.summaries,
         summariesWithTimestamps: session.summariesWithTimestamps,
-        customName: userData.customNames[session.id] || session.customName,
+        // JSONL is the source of truth (so terminal /rename and Hub renames stay in sync).
+        // Fall back to user-data.json for legacy entries renamed before bidirectional sync existed.
+        customName: session.customName || userData.customNames[session.id],
         lastModified: session.lastModified.toISOString(),
         firstMessage: session.firstMessage?.slice(0, 200),
         messageCount: session.messages.filter(m => m.type === 'user' || m.type === 'assistant').length,

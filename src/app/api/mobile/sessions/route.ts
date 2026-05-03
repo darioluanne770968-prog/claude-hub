@@ -58,7 +58,7 @@ export async function GET() {
         projectPath: session.projectPath,
         projectName: session.projectName,
         summaries: session.summaries,
-        customName: userData.customNames[session.id] || session.customName,
+        customName: session.customName || userData.customNames[session.id],
         lastModified: session.lastModified.toISOString(),
         firstMessage: session.firstMessage?.slice(0, 200),
         messageCount: session.messages.filter(m => m.type === 'user' || m.type === 'assistant').length,

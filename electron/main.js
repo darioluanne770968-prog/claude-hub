@@ -303,6 +303,7 @@ async function startNextServer() {
 
     // Find system Node.js - try common locations
     const nodePaths = [
+      '/Users/haihui/.nvm/versions/node/v24.3.0/bin/node',
       '/opt/homebrew/opt/node@20/bin/node',
       '/opt/homebrew/bin/node',
       '/usr/local/bin/node',
@@ -331,6 +332,19 @@ async function startNextServer() {
     if (useStandalone) {
       args = [serverPath];
       cwd = path.join(basePath, '.next', 'standalone');
+
+      // Fix hardcoded appDir in required-server-files.json for packaged app
+      const reqFilesPath = path.join(cwd, '.next', 'required-server-files.json');
+      if (fs.existsSync(reqFilesPath)) {
+        try {
+          const reqFiles = JSON.parse(fs.readFileSync(reqFilesPath, 'utf-8'));
+          reqFiles.appDir = cwd;
+          fs.writeFileSync(reqFilesPath, JSON.stringify(reqFiles));
+          console.log('Fixed appDir to:', cwd);
+        } catch (e) {
+          console.error('Failed to fix required-server-files.json:', e);
+        }
+      }
     } else {
       args = [serverPath, 'start', '-p', PORT.toString()];
       cwd = basePath;

@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import TerminalButton from '@/components/TerminalButton';
+import RemoteControlButton from '@/components/RemoteControlButton';
 import SessionSearch from '@/components/SessionSearch';
 import ThemeToggle from '@/components/ThemeToggle';
 import CodeSnippets from '@/components/CodeSnippets';
@@ -1042,13 +1043,21 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
 
-              {!isCodexSession && (
-                <Tooltip content="在终端中恢复 - 使用 Claude Code CLI 继续会话">
-                  <TerminalButton
+              <Tooltip content={isCodexSession ? '在终端中恢复 - 使用 Codex CLI 继续会话' : '在终端中恢复 - 使用 Claude Code CLI 继续会话'}>
+                <TerminalButton
+                  sessionId={session.id}
+                  provider={session.provider || 'claude'}
+                  projectPath={session.projectPath}
+                  variant="icon"
+                  source={remoteSource}
+                />
+              </Tooltip>
+
+              {!isCodexSession && !remoteSource && (
+                <Tooltip content="接管到 Claude App - 后台 tmux + /remote-control，给手机用">
+                  <RemoteControlButton
                     sessionId={session.id}
                     projectPath={session.projectPath}
-                    variant="icon"
-                    source={remoteSource}
                   />
                 </Tooltip>
               )}

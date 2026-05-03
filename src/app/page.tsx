@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Search, RefreshCw, MessageSquareText, Server, Laptop, BarChart3, Calendar, Tag, X, GitCompare, FileText, Download, Bell, Database } from 'lucide-react';
+import { Search, RefreshCw, MessageSquareText, Server, Laptop, BarChart3, Calendar, Tag, X, GitCompare, FileText, Download, Bell, Database, GitBranch } from 'lucide-react';
 import Link from 'next/link';
 import ProjectGroup from '@/components/ProjectGroup';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -48,22 +48,35 @@ interface Project {
   sessions: Session[];
 }
 
+// Module-level cache: survives route navigation (page unmount → remount) but
+// is cleared on full reload. Lets us restore data + scroll position when
+// returning from /session/[id], so the user lands exactly where they left off.
+let cachedProjects: Project[] | null = null;
+let cachedRemoteProjects: Project[] = [];
+let cachedRemoteErrors: Array<{ hostName: string; error: string }> = [];
+let cachedAllTags: string[] = [];
+let cachedSearch = '';
+let cachedSelectedTags: string[] = [];
+let cachedScrollY = 0;
+
 export default function Home() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [projects, setProjects] = useState<Project[]>(() => cachedProjects ?? []);
+  const [loading, setLoading] = useState(cachedProjects === null);
+  const [search, setSearch] = useState(cachedSearch);
   const [showRemoteHostsManager, setShowRemoteHostsManager] = useState(false);
-  const [remoteProjects, setRemoteProjects] = useState<Project[]>([]);
+  const [remoteProjects, setRemoteProjects] = useState<Project[]>(() => cachedRemoteProjects);
   const [remoteLoading, setRemoteLoading] = useState(false);
-  const [remoteErrors, setRemoteErrors] = useState<Array<{ hostName: string; error: string }>>([]);
-  const [allTags, setAllTags] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [remoteErrors, setRemoteErrors] = useState<Array<{ hostName: string; error: string }>>(() => cachedRemoteErrors);
+  const [allTags, setAllTags] = useState<string[]>(() => cachedAllTags);
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => cachedSelectedTags);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [showWebhooksManager, setShowWebhooksManager] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const fetchLocalData = async () => {
-    setLoading(true);
+    // Only show the full-page spinner on the very first load; subsequent
+    // refreshes happen silently so scroll position stays put.
+    if (cachedProjects === null) setLoading(true);
     try {
       const res = await fetch('/api/sessions');
       const data = await res.json();
@@ -77,6 +90,7 @@ export default function Home() {
           source: { type: 'local' as const },
         })),
       }));
+      cachedProjects = localProjects;
       setProjects(localProjects);
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
@@ -93,10 +107,14 @@ export default function Home() {
       const res = await fetch(url);
       const data = await res.json();
       if (data.projects) {
+        cachedRemoteProjects = data.projects;
         setRemoteProjects(data.projects);
       }
       if (data.errors && data.errors.length > 0) {
+        cachedRemoteErrors = data.errors;
         setRemoteErrors(data.errors);
+      } else {
+        cachedRemoteErrors = [];
       }
     } catch (error) {
       console.error('Failed to fetch remote sessions:', error);
@@ -109,7 +127,8 @@ export default function Home() {
     try {
       const res = await fetch('/api/tags');
       const data = await res.json();
-      setAllTags(data.allTags || []);
+      cachedAllTags = data.allTags || [];
+      setAllTags(cachedAllTags);
     } catch (error) {
       console.error('Failed to fetch tags:', error);
     }
@@ -139,8 +158,30 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchData();
+    // First mount of the session: do a full fetch. Subsequent mounts (e.g. user
+    // came back from /session/[id]) skip the fetch — cached data is reused.
+    // The refresh button still calls fetchData(true) explicitly.
+    if (cachedProjects === null) {
+      fetchData();
+    }
+
+    // Restore scroll position from before navigating into a session.
+    // Run after paint so the list DOM has its full height.
+    if (cachedScrollY > 0) {
+      const y = cachedScrollY;
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+
+    const onScroll = () => {
+      cachedScrollY = window.scrollY;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Mirror filter state to the cache so it survives navigation too.
+  useEffect(() => { cachedSearch = search; }, [search]);
+  useEffect(() => { cachedSelectedTags = selectedTags; }, [selectedTags]);
 
   // Merge local and remote projects
   const allProjects = [...projects, ...remoteProjects];
@@ -194,24 +235,28 @@ export default function Home() {
 
   // Handle session deletion
   const handleDeleteSession = (sessionId: string) => {
-    setProjects(prevProjects =>
-      prevProjects.map(project => ({
+    setProjects(prevProjects => {
+      const next = prevProjects.map(project => ({
         ...project,
         sessions: project.sessions.filter(s => s.id !== sessionId),
-      })).filter(project => project.sessions.length > 0)
-    );
+      })).filter(project => project.sessions.length > 0);
+      cachedProjects = next;
+      return next;
+    });
   };
 
   // Handle session rename
   const handleRenameSession = (sessionId: string, newName: string) => {
-    setProjects(prevProjects =>
-      prevProjects.map(project => ({
+    setProjects(prevProjects => {
+      const next = prevProjects.map(project => ({
         ...project,
         sessions: project.sessions.map(s =>
           s.id === sessionId ? { ...s, customName: newName || undefined } : s
         ),
-      }))
-    );
+      }));
+      cachedProjects = next;
+      return next;
+    });
   };
 
   return (
@@ -283,6 +328,15 @@ export default function Home() {
                   className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
                 >
                   <GitCompare size={18} />
+                </Link>
+              </Tooltip>
+
+              <Tooltip content="Git 面板（推送状态）">
+                <Link
+                  href="/git-dashboard"
+                  className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+                >
+                  <GitBranch size={18} />
                 </Link>
               </Tooltip>
 

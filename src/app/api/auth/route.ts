@@ -8,6 +8,10 @@ if (!PASSWORD) {
 
 export async function POST(request: Request) {
   try {
+    if (!PASSWORD) {
+      return NextResponse.json({ error: 'Auth not configured' }, { status: 500 });
+    }
+
     const { password } = await request.json();
 
     if (password === PASSWORD) {

@@ -218,18 +218,17 @@ export default function SessionCard({
             >
               <Eye size={14} />
             </button>
-            {provider !== 'codex' && (
-              <TerminalButton
-                sessionId={id}
-                projectPath={originalProjectPath || projectPath}
-                variant="icon"
-                source={source?.type === 'remote' ? {
-                  type: 'remote',
-                  hostId: source.hostId!,
-                  hostName: source.hostName || 'Remote',
-                } : undefined}
-              />
-            )}
+            <TerminalButton
+              sessionId={id}
+              provider={provider}
+              projectPath={originalProjectPath || projectPath}
+              variant="icon"
+              source={source?.type === 'remote' ? {
+                type: 'remote',
+                hostId: source.hostId!,
+                hostName: source.hostName || 'Remote',
+              } : undefined}
+            />
             <button
               onClick={handleDelete}
               className="p-1.5 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/50 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 
 const USER_DATA_FILE = path.join(os.homedir(), '.claude', 'claude-hub-user-data.json');
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
@@ -20,22 +21,41 @@ function syncRenameToSessionFile(sessionId: string, newName: string | null): boo
 
       const sessionFile = path.join(projectDir, `${sessionId}.jsonl`);
       if (fs.existsSync(sessionFile)) {
-        // Create a /rename command entry
-        const renameEntry = {
-          type: 'user',
-          message: {
-            role: 'user',
-            content: newName ? `/rename ${newName}` : '/rename',
-          },
-          timestamp: new Date().toISOString(),
+        // Claude Code's title persistence is the `custom-title` / `agent-name` entries —
+        // those are what `claude --resume` reads on startup to set the session title.
+        // The <local-command-stdout> line is just the UI echo of /rename and is
+        // optional; we keep it so the conversation log looks identical to a real
+        // terminal rename.
+        const ts = new Date().toISOString();
+        const title = newName ?? '';
+        const stdoutEntry = {
+          type: 'system',
+          subtype: 'local_command',
+          content: `<local-command-stdout>Session renamed to: ${title}</local-command-stdout>`,
+          level: 'info',
+          timestamp: ts,
+          uuid: crypto.randomUUID(),
+          isMeta: false,
+          sessionId,
+        };
+        const customTitleEntry = {
+          type: 'custom-title',
+          customTitle: title,
+          sessionId,
+        };
+        const agentNameEntry = {
+          type: 'agent-name',
+          agentName: title,
+          sessionId,
         };
 
-        // Append to session file (ensure proper newline handling)
-        // Read the file to check if it ends with a newline
         const fileContent = fs.readFileSync(sessionFile, 'utf8');
         const needsLeadingNewline = fileContent.length > 0 && !fileContent.endsWith('\n');
-        const entryToAppend = (needsLeadingNewline ? '\n' : '') + JSON.stringify(renameEntry) + '\n';
-        fs.appendFileSync(sessionFile, entryToAppend);
+        const entriesToAppend = (needsLeadingNewline ? '\n' : '') +
+          JSON.stringify(stdoutEntry) + '\n' +
+          JSON.stringify(customTitleEntry) + '\n' +
+          JSON.stringify(agentNameEntry) + '\n';
+        fs.appendFileSync(sessionFile, entriesToAppend);
         return true;
       }
     }

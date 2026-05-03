@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // 使用 standalone 输出模式，更适合 Electron 打包
   output: 'standalone',
 
+  // 让 standalone 输出在项目根目录，而非嵌套路径
+  outputFileTracingRoot: __dirname,
+
   // 禁用 Turbopack 用于生产构建
   experimental: {
     // 确保外部模块不被打包

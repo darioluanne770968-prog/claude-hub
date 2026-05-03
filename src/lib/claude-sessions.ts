@@ -120,7 +120,6 @@ export function parseSessionContent(sessionId: string, content: string, projectP
     const messages: SessionEntry[] = [];
     const summaries: string[] = [];
     const summariesWithTimestamps: SummaryWithTimestamp[] = [];
-    let customName: string | undefined;
     let firstMessage: string | undefined;
     let lastTimestamp: Date | null = null;
 
@@ -167,17 +166,12 @@ export function parseSessionContent(sessionId: string, content: string, projectP
           });
         }
 
-        // Check for custom name (from /rename command)
-        if (entry.type === 'user' && entry.message?.content) {
-          const content = entry.message.content;
-          if (typeof content === 'string' && content.startsWith('/rename ')) {
-            customName = content.replace('/rename ', '').trim();
-          }
-        }
       } catch {
         // Skip invalid JSON lines
       }
     }
+
+    const customName = extractCustomName(messages);
 
     const projectName = projectPath.split('/').pop() || projectPath;
 
@@ -810,21 +804,51 @@ function isContextSummary(text: string): boolean {
     (text.includes('Summary:') && text.includes('Primary Request') && text.includes('Key Technical Concepts'));
 }
 
-// Extract custom session name from /rename command result
+// Extract the active session title. Scans newest → oldest; first match wins,
+// so the latest rename (from any source — terminal /rename or Claude Hub) takes effect.
+//
+// Claude Code's actual title-persistence entries are:
+//   { type: "custom-title", customTitle: "...", sessionId: "..." }
+//   { type: "agent-name",   agentName:   "...", sessionId: "..." }
+// These are what `claude --resume` reads on startup. The visible
+//   <local-command-stdout>Session renamed to: ...</local-command-stdout>
+// line is just UI echo. We accept all three formats (and Hub's legacy
+// "/rename xxx" user message) so we stay compatible with whatever already
+// exists in older session files.
 function extractCustomName(entries: SessionEntry[]): string | undefined {
-  // Look for the most recent /rename command result
+  const STDOUT_RE = /<local-command-stdout>Session renamed to:\s*(.+?)<\/local-command-stdout>/;
+
   for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
+    const entry = entries[i] as SessionEntry & {
+      subtype?: string;
+      content?: string;
+      customTitle?: string;
+      agentName?: string;
+    };
+
+    if (entry.type === 'custom-title' && typeof entry.customTitle === 'string' && entry.customTitle.trim()) {
+      return entry.customTitle.trim();
+    }
+    if (entry.type === 'agent-name' && typeof entry.agentName === 'string' && entry.agentName.trim()) {
+      return entry.agentName.trim();
+    }
+
+    // Terminal /rename UI echo line.
+    if (entry.type === 'system' && entry.subtype === 'local_command' && typeof entry.content === 'string') {
+      const m = entry.content.match(STDOUT_RE);
+      if (m && m[1]) return m[1].trim();
+    }
+
+    // Legacy Hub-written formats.
     if (entry.type === 'user' && entry.message) {
       const content = entry.message.content;
       const textContent = typeof content === 'string' ? content :
         Array.isArray(content) ? content.find(c => c.type === 'text')?.text : undefined;
-
       if (textContent) {
-        // Check for rename command result: <local-command-stdout>Session renamed to: xxx</local-command-stdout>
-        const match = textContent.match(/<local-command-stdout>Session renamed to:\s*(.+?)<\/local-command-stdout>/);
-        if (match && match[1]) {
-          return match[1].trim();
+        const m = textContent.match(STDOUT_RE);
+        if (m && m[1]) return m[1].trim();
+        if (textContent.startsWith('/rename ')) {
+          return textContent.replace('/rename ', '').trim();
         }
       }
     }
